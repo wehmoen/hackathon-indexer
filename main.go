@@ -52,23 +52,31 @@ func printError(message string, exit ...bool) {
 func main() {
 
 	startBlockFlag := flag.Int64("start", treasuryDeploymentBlock, "Start block number")
-	apiKeyFlag := flag.String("apikey", "", "SkyMavis RPC API key")
+	apiKeyFlag := flag.String("apikey", "", "SkyMavis RPC API key. Required if using default RPC URL")
 	noCowFlag := flag.Bool("disable-cow", false, "Disable ASCII cow")
+	customRPCFlag := flag.String("rpc", providerURL, "RPC URL")
 	flag.Parse()
 
 	if !*noCowFlag {
 		cowsay.Cowsay("AxieGov Data Hackathon")
 	}
 
-	if *apiKeyFlag == "" {
-		printError("API key is required. Get one at https://developers.skymavis.com/")
-	}
-
 	if *startBlockFlag < treasuryDeploymentBlock {
 		printError(fmt.Sprintf("Start block number must be greater than or equal to %d", treasuryDeploymentBlock))
 	}
 
-	client, err := ethclient.Dial(fmt.Sprintf("%s?apikey=%s", providerURL, *apiKeyFlag))
+	var provider string
+
+	if *customRPCFlag == providerURL {
+		if *apiKeyFlag == "" {
+			printError("API key is required. Get one at https://developers.skymavis.com/")
+		}
+		provider = fmt.Sprintf("%s?apikey=%s", providerURL, *apiKeyFlag)
+	} else {
+		provider = *customRPCFlag
+	}
+
+	client, err := ethclient.Dial(fmt.Sprintf("%s?apikey=%s", provider, *apiKeyFlag))
 	if err != nil {
 		printError(fmt.Sprintf("Failed to connect to Ronin client: %v", err))
 	}
