@@ -27,7 +27,7 @@ This project provides a simple golang cli tool that scans the blockchain for all
 
 ### Prerequisites
 
-You need an API key from https://developer.skymavis.com/ to run this tool as well as access to the "Ronin Archive Node" service. 
+You need an API key from https://developer.skymavis.com/ to run this tool as well as access to the "Ronin Archive Node" service. Alternatively, you can use your own RPC URL.
 
 ### How to run
 
@@ -48,9 +48,11 @@ First clone the repository.
 ```
 Usage of hackathon.exe:
   -apikey string
-        SkyMavis RPC API key
+        SkyMavis RPC API key. Required if using default RPC URL
   -disable-cow
         Disable ASCII cow
+  -rpc string
+        RPC URL (default "https://api-gateway.skymavis.com/rpc/archive")
   -start int
         Start block number (default 16377111)
 ```
