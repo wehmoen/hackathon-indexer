@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/schollz/progressbar/v3"
 	"math/big"
 	"nmyk.io/cowsay"
 	"os"
@@ -28,6 +29,15 @@ var contractAddresses = []string{
 	"0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5",
 	"0x97a9107c1793bc407d6f527b77e7fff4d812bece",
 	"0xa8754b9fa15fc18bb59458815510e40a12cd2014",
+}
+
+type Transfer struct {
+	From            common.Address `json:"from"`
+	To              common.Address `json:"to"`
+	TokenAddress    common.Address `json:"tokenAddress"`
+	TransactionHash string         `json:"transactionHash"`
+	Value           *big.Int       `json:"value"`
+	Block           int64          `json:"block"`
 }
 
 func printError(message string, exit ...bool) {
@@ -94,6 +104,9 @@ func main() {
 
 	startBlock := *startBlockFlag
 
+	progress := progressbar.Default(latestBlock, "Fetching transfers")
+	_ = progress.Set64(startBlock)
+
 	erc20ABIParsed, err := abi.JSON(strings.NewReader(erc20ABI))
 	if err != nil {
 		printError(fmt.Sprintf("Failed to parse ERC20 ABI: %v", err))
@@ -106,57 +119,78 @@ func main() {
 
 	wallet := common.HexToAddress(walletAddress)
 
-	for blockNumber := startBlock; blockNumber <= latestBlock; blockNumber++ {
+	var transfers []Transfer
+
+	filename := fmt.Sprintf("transfers_%d_%d.json", startBlock, latestBlock)
+
+	blockRange := int64(5000)
+
+	for blockNumber := startBlock; blockNumber <= latestBlock; blockNumber += blockRange {
+		endBlock := blockNumber + (blockRange - 1)
+		if endBlock > latestBlock {
+			endBlock = latestBlock
+		}
+		_ = progress.Add64(endBlock - blockNumber + 1)
 		query := ethereum.FilterQuery{
 			FromBlock: big.NewInt(blockNumber),
-			ToBlock:   big.NewInt(blockNumber),
+			ToBlock:   big.NewInt(endBlock),
 			Addresses: addresses,
+			Topics: [][]common.Hash{
+				{erc20ABIParsed.Events["Transfer"].ID},
+			},
 		}
+
+		progress.Describe(fmt.Sprintf("Fetching logs for blocks %d to %d - Found transfers: %d", blockNumber, endBlock, len(transfers)))
 
 		logs, err := client.FilterLogs(context.Background(), query)
 		if err != nil {
-			printError(fmt.Sprintf("Failed to filter logs for block %d: %v", blockNumber, err))
+			continue
 		}
 
 		for _, vLog := range logs {
-			if vLog.Topics[0] == erc20ABIParsed.Events["Transfer"].ID {
-				var transferEvent struct {
-					From  common.Address
-					To    common.Address
-					Value *big.Int
+			var transferEvent struct {
+				From  common.Address
+				To    common.Address
+				Value *big.Int
+			}
+
+			err := erc20ABIParsed.UnpackIntoInterface(&transferEvent, "Transfer", vLog.Data)
+			if err != nil {
+				continue
+			}
+
+			transferEvent.From = common.HexToAddress(vLog.Topics[1].Hex())
+			transferEvent.To = common.HexToAddress(vLog.Topics[2].Hex())
+			if transferEvent.From == wallet || transferEvent.To == wallet {
+
+				output := Transfer{
+					From:            transferEvent.From,
+					To:              transferEvent.To,
+					Value:           transferEvent.Value,
+					TokenAddress:    common.HexToAddress(vLog.Address.Hex()),
+					TransactionHash: vLog.TxHash.Hex(),
+					Block:           blockNumber,
 				}
 
-				err := erc20ABIParsed.UnpackIntoInterface(&transferEvent, "Transfer", vLog.Data)
-				if err != nil {
-					printError(fmt.Sprintf("Failed to unpack log: %v", err), false)
-					continue
-				}
+				transfers = append(transfers, output)
 
-				transferEvent.From = common.HexToAddress(vLog.Topics[1].Hex())
-				transferEvent.To = common.HexToAddress(vLog.Topics[2].Hex())
-				if transferEvent.From == wallet || transferEvent.To == wallet {
-
-					output := struct {
-						From  common.Address `json:"from"`
-						To    common.Address `json:"to"`
-						Value *big.Int       `json:"value"`
-						Block int64          `json:"block"`
-					}{
-						From:  transferEvent.From,
-						To:    transferEvent.To,
-						Value: transferEvent.Value,
-						Block: blockNumber,
-					}
-
-					jsonBytes, err := json.Marshal(output)
-
-					if err != nil {
-						printError(fmt.Sprintf("Failed to marshal output: %v", err))
-					}
-
-					fmt.Println(string(jsonBytes))
-				}
 			}
 		}
+	}
+
+	_ = progress.Finish()
+
+	encodedTransfers, err := json.Marshal(transfers)
+
+	if err != nil {
+		printError(fmt.Sprintf("Failed to marshal transfers: %v", err))
+	}
+
+	err = os.WriteFile(filename, encodedTransfers, 0644)
+
+	if err != nil {
+		printError(fmt.Sprintf("Failed to write to file: %v", err))
+	} else {
+		printError(fmt.Sprintf("Transfers saved to %s", filename))
 	}
 }

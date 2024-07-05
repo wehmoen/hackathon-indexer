@@ -18,11 +18,14 @@ This project provides a simple golang cli tool that scans the blockchain for all
 ### Example
 
 ```json
-{"from":"0x67ad0b6ab4cf735670ebb48e9c7d63f498ec2f55","to":"0x245db945c485b68fdc429e4f7085a1761aa4d45d","value":500000000000000000,"block":36004745}
-{"from":"0x1277ebe8c161802c273c666d0884c1879f36b2d7","to":"0x245db945c485b68fdc429e4f7085a1761aa4d45d","value":84357669465561926,"block":36004746}
-{"from":"0x67ad0b6ab4cf735670ebb48e9c7d63f498ec2f55","to":"0x245db945c485b68fdc429e4f7085a1761aa4d45d","value":500000000000000000,"block":36004748}
-{"from":"0xfff9ce5f71ca6178d3beecedb61e7eff1602950e","to":"0x245db945c485b68fdc429e4f7085a1761aa4d45d","value":50150000000000,"block":36004749}
-{"from":"0x67ad0b6ab4cf735670ebb48e9c7d63f498ec2f55","to":"0x245db945c485b68fdc429e4f7085a1761aa4d45d","value":500000000000000000,"block":36004751}
+  {
+    "from": "0xb1b165d6c53a69cc903109247da54045af7c08ab",
+    "to": "0x245db945c485b68fdc429e4f7085a1761aa4d45d",
+    "tokenAddress": "0x97a9107c1793bc407d6f527b77e7fff4d812bece",
+    "transactionHash": "0x29b2600116f30e280f1c6fd8ae6ac97124b04e102880d36d8570ad7a872cc158",
+    "value": 288197335793115211,
+    "block": 36097704
+  }
 ```
 
 ### Prerequisites
@@ -57,3 +60,7 @@ Usage of hackathon.exe:
         Start block number (default 16377111)
 ```
 
+
+### Output 
+
+The tool will output a json file with all the transactions in the Axie Treasury. The filename will be `transfers_STARTBLOCK_ENDBLOCK.json`
